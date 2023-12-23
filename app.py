@@ -62,7 +62,7 @@ if __name__ == "__main__":
             chat = ChatOpenAI(
                 openai_api_key=api_key,
                 temperature=0,
-                model='gpt-4'
+                model='gpt-3.5-turbo'
             )
             article_text = get_article(url)
 
