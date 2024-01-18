@@ -1,5 +1,7 @@
 import streamlit as st
 import requests
+from langchain.callbacks import get_openai_callback
+
 from langchain.chat_models import ChatOpenAI
 from bs4 import BeautifulSoup
 import requests
@@ -28,20 +30,21 @@ def get_article(url: str) -> str:
 def summarize_and_generate_questions(summary_prompt, questions_prompt, article_text, chat):
     summary_prompt = f"{summary_prompt}:\n\n{article_text}"
     questions_prompt = f"{questions_prompt}:\n\n{article_text}"
-    
-    messages = [
-    SystemMessage(content="You are a helpful assistant."),
-    HumanMessage(content=summary_prompt)
-    ]
-    summary = chat(messages)
+    with get_openai_callback() as cb:
 
-    messages = [
-    SystemMessage(content="You are a helpful assistant."),
-    HumanMessage(content=questions_prompt)
-    ]
-    questions = chat(messages)
+        messages = [
+        SystemMessage(content="You are a helpful assistant."),
+        HumanMessage(content=summary_prompt)
+        ]
+        summary = chat(messages)
 
-    return summary.content, questions.content
+        messages = [
+        SystemMessage(content="You are a helpful assistant."),
+        HumanMessage(content=questions_prompt)
+        ]
+        questions = chat(messages)
+
+    return summary.content, questions.content, cb
 
 
 
@@ -50,11 +53,13 @@ if __name__ == "__main__":
 
     with st.sidebar:
         api_key = st.text_input("Enter your OpenAI API Key:", type="password")
-        default_summary_prompt = "Schreibe eine 200 Wort Teaser über diesen Artikel für einen Twitter-Post. Benutze Hashtags im Text.\n\n"
+        default_summary_prompt = "Fasse den Inhalt des Textes in wenigen literarisch anspruchsvollen Sätzen zusammen, achte auf eine starke Wortwahl.\n\n"
         default_question_prompt = """Erzeuge 3 Fragen über den Artikel, die zur Diskussion anregen. Sprich die Leser immer direkt mit "Sie" an. \nHier sind gute Beispiele:\n\nWie bewerten Sie die möglichen Konsequenzen eines weiteren Absikens der Rentenniveaus?\n Wie sollte das Geld ihrer Meinung nach eingesetzt werden?\nWie schätzen Sie die Erfolgsaussichten des geplanten Vorstoßes zur Sicherung des Roten Meeres ein? \nRede das Publikum immer direkt an.\n\n"""
 
         summary_prompt_text = st.text_area("Customize your summary prompt:", value=default_summary_prompt)
         questions_prompt_text = st.text_area("Customize your questions prompt:", value=default_question_prompt)
+        model = st.radio("Choose an AI model:", ('gpt-4-1106-preview', 'gpt-3.5-turbo-1106'))
+
 
     url = st.text_input("Enter the URL of the article:")
     if st.button("Generate Summary and Questions"):
@@ -62,17 +67,18 @@ if __name__ == "__main__":
             chat = ChatOpenAI(
                 openai_api_key=api_key,
                 temperature=0,
-                model='gpt-3.5-turbo'
+                model=model
             )
             article_text = get_article(url)
 
             if article_text:
-                summary, questions = summarize_and_generate_questions(summary_prompt_text, questions_prompt_text, article_text, chat)
+                summary, questions, cb = summarize_and_generate_questions(summary_prompt_text, questions_prompt_text, article_text, chat)
 
                 st.subheader("Facebook Post")
                 st.write(summary)
                 st.subheader("Questions")
                 st.write(questions)
+                st.write(cb)
 
             else:
                 st.error("Unable to retrieve article content. Please check the URL.")
