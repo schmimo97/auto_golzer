@@ -27,16 +27,22 @@ def get_article(url: str) -> str:
     article_text = article.get_text(separator='\n', strip=True)
     return article_text
 
-def summarize_and_generate_questions(summary_prompt, questions_prompt, article_text, chat):
+def get_summary(summary_prompt, article_text, chat):
     summary_prompt = f"{summary_prompt}:\n\n{article_text}"
-    questions_prompt = f"{questions_prompt}:\n\n{article_text}"
+    
     with get_openai_callback() as cb:
-
         messages = [
         SystemMessage(content="You are a helpful assistant."),
         HumanMessage(content=summary_prompt)
         ]
         summary = chat(messages)
+
+    return summary.content, cb
+
+def get_questions(questions_prompt, article_text, chat):
+    questions_prompt = f"{questions_prompt}:\n\n{article_text}"
+
+    with get_openai_callback() as cb:
 
         messages = [
         SystemMessage(content="You are a helpful assistant."),
@@ -44,7 +50,7 @@ def summarize_and_generate_questions(summary_prompt, questions_prompt, article_t
         ]
         questions = chat(messages)
 
-    return summary.content, questions.content, cb
+    return questions.content, cb
 
 
 
@@ -62,7 +68,7 @@ if __name__ == "__main__":
 
 
     url = st.text_input("Enter the URL of the article:")
-    if st.button("Generate Summary and Questions"):
+    if st.button("Generate Summary"):
         if url and api_key:
             chat = ChatOpenAI(
                 openai_api_key=api_key,
@@ -72,10 +78,29 @@ if __name__ == "__main__":
             article_text = get_article(url)
 
             if article_text:
-                summary, questions, cb = summarize_and_generate_questions(summary_prompt_text, questions_prompt_text, article_text, chat)
+                summary, cb = get_summary(summary_prompt_text, article_text, chat)
 
-                st.subheader("Facebook Post")
+                st.subheader("Summary")
                 st.write(summary)
+                st.write(cb)
+
+            else:
+                st.error("Unable to retrieve article content. Please check the URL.")
+        else:
+            st.error("Please provide both a URL and an OpenAI API Key.")
+
+    if st.button("Generate Questions"):
+        if url and api_key:
+            chat = ChatOpenAI(
+                openai_api_key=api_key,
+                temperature=0,
+                model=model
+            )
+            article_text = get_article(url)
+
+            if article_text:
+                questions, cb = get_questions(questions_prompt_text, article_text, chat)
+
                 st.subheader("Questions")
                 st.write(questions)
                 st.write(cb)
